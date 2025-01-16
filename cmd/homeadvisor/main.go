@@ -9,6 +9,7 @@ import (
 	"homeadvisorbot/repositories"
 	"log"
 	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,7 +41,7 @@ func installBrowser() {
 
 func readFile(relativeFilePath string) string {
 	workingDir, _ := os.Getwd()
-	txt, err := os.ReadFile(workingDir + relativeFilePath)
+	txt, err := os.ReadFile(path.Join(workingDir, relativeFilePath))
 
 	if err != nil {
 		log.Println("error occurred while reading the file")
@@ -51,7 +52,7 @@ func readFile(relativeFilePath string) string {
 }
 
 func addInitScript(browser *entities.BrowserType) {
-	scriptTxt := readFile("\\resources\\scripts\\init.js")
+	scriptTxt := readFile(path.Join("resources", "scripts", "init.js"))
 	script := &playwright.Script{Content: &scriptTxt}
 
 	err := (*browser.Page).AddInitScript(*script)
@@ -63,6 +64,7 @@ func addInitScript(browser *entities.BrowserType) {
 }
 
 func makeDuckDuckGoSearch(browser *entities.BrowserType, searchTerm string) {
+	log.Println("searching " + searchTerm)
 	browser.Navigate("https://lite.duckduckgo.com/lite/")
 	browser.Fill("[class='query']", searchTerm)
 	browser.Click("[value='Search']")
@@ -211,7 +213,7 @@ func getConf() *conf {
 	c := &conf{}
 
 	workingDir, _ := os.Getwd()
-	yamlFile, err := os.ReadFile(workingDir + "\\config.yaml")
+	yamlFile, err := os.ReadFile(path.Join(workingDir, "config.yaml"))
 
 	if err != nil {
 		log.Println("couldnt open conf file")
@@ -260,11 +262,14 @@ func main() {
 
 	fBrowser := entities.NewBrowser(&browser, &page)
 	addInitScript(fBrowser)
+
 	currentDate := time.Now()
+	previousDate := currentDate.AddDate(0, 0, -1)
 
-	dateString := currentDate.Format("2/1/2006")
+	dateStringToday := currentDate.Format("1/2/2006")
+	dateStringYesterday := previousDate.Format("1/2/2006")
 
-	makeDuckDuckGoSearch(fBrowser, dateString+" "+c.SearchTerm)
+	makeDuckDuckGoSearch(fBrowser, dateStringToday+" "+c.SearchTerm)
 
 	if err != nil {
 		log.Fatal(err)
@@ -272,8 +277,18 @@ func main() {
 
 	var urls []string
 
-	urlsInPage := getUrlsFromDuckDuckGoPage(fBrowser)
-	urls = append(urls, urlsInPage...)
+	urlsInPageToday := getUrlsFromDuckDuckGoPage(fBrowser)
+
+	makeDuckDuckGoSearch(fBrowser, dateStringYesterday+" "+c.SearchTerm)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	urlsInPageYesteray := getUrlsFromDuckDuckGoPage(fBrowser)
+
+	urls = append(urls, urlsInPageToday...)
+	urls = append(urls, urlsInPageYesteray...)
 
 	for currentPage := 1; currentPage <= c.PageCountToCrawl; currentPage++ {
 		fBrowser.Click("[type='submit'][value='Next Page >']")
