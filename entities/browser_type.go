@@ -13,7 +13,10 @@ type BrowserType struct {
 }
 
 func (b *BrowserType) Navigate(url string) {
-	_, err := (*b.Page).Goto(url)
+	navTimeout := 60000.0
+	_, err := (*b.Page).Goto(url, playwright.PageGotoOptions{
+		Timeout: &navTimeout,
+	})
 	(*b.Page).WaitForLoadState(playwright.PageWaitForLoadStateOptions{State: playwright.LoadStateNetworkidle})
 
 	if err != nil {
